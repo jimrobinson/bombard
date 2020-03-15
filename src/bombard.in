@@ -144,7 +144,7 @@ if (! defined $initial || ! defined $step || ! defined $runs) {
 # parse the seige configuration file into the %rc_args hashmap, we allow
 # either --rc or -r arguments to override the default $rc path
 #
-$rc = arg(\%cl_args, undef, $rc, '--rc', '-r');
+$rc = arg(\%cl_args, undef, $rc, '--rc', '-R');
 
 my %rc_args;
 open(RC, '<', $rc)
