@@ -19,7 +19,10 @@ to bombard to better suit my testing needs.  See the README.original.md for the
 original Siege Support Utilities document.
 
 Using the Docker file in this project you can build an image to siege or
-bombard against an http service.
+bombard against an http service.  A copy of the docker image is available
+via dockerhub
+
+https://hub.docker.com/repository/docker/jimrobinson/bombard
 
 While siege can be run against a single url, it is generally more useful to run
 it against a list of urls.  The url list allows for variables, so you can use
