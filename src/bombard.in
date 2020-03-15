@@ -198,12 +198,12 @@ my @siege_addl_parm = ();
 foreach my $k (sort(keys(%cl_args))) {
 	# some siege flags don't make sense in this context, ignore them
 	if ($k =~ m/^(-V|-h|--help|-C|--config)$/) {
-		continue
+		next;
 	}
 
 	# skip over flags we have to set ourselves
 	if ($k =~ m/^(-c|--concurrent|-l|--log)$/) {
-		continue;
+		next;
 	}
 
 	# add the flag to the @siege_addl_parm array
