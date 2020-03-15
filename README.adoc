@@ -47,7 +47,7 @@ $ docker build -e UID=$(id -u) -e GID=$(id -g) -t bombard:latest
 ----
 
 To run a siege test using a container image named 'bombard:latest' when you are
-in your test-data directory on your machine (not inside a docker instance), you
+in your data directory on your machine (not inside a docker instance), you
 could execute the following to start up a docker container running siege:
 
 ----
