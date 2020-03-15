@@ -134,7 +134,7 @@ $ docker run --rm -it -v $(pwd):/data bombard:latest bombard --initial 5 --step 
 So that would start with 5 concurrent users, then add 1 more user on each run,
 for a total of 20 runs.  That would ultimately run '(initial + ((runs-1) *
 step)' users, or 24 concurrent users.  The, '-l', '-f', '-i', '-b', and '-r'
-flags are all passed through to siege, meaning the log will be written ti
+flags are all passed through to siege, meaning the log will be written to
 siege.log, the urls read from urls.txt, it will operate in "internet" mode
 (random selection of urls for the source urls list), benchmarking mode (no
 pause between requests), and  will make 10,000 requests.
