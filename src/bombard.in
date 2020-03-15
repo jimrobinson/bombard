@@ -1,109 +1,441 @@
 %_PERL%
 #
-# bombard
-# Author: Bill Proud <bill.proud@nl.wanadoo.com>
 #
-
-use POSIX;
-use Getopt::Std;
+# bombard - run escalating siege tests and graph the results
+#
+# Author: Bill Proud <bill.proud@nl.wanadoo.com>
+# Contributor: James A. Robinson <jim.robinson@gmail.com>
+#
+use Cwd 'abs_path';
 use File::Basename;
 use FindBin;
+use POSIX;
 use strict;
-use vars qw($opt_d $opt_f $opt_v $opt_h $opt_H $opt_i $opt_l $opt_r $opt_s $opt_t);
 
+# default location of the configuration file
+# (this changed from ~/.siegerc to ~/.siege/siege.conf at some point)
+my $rc = $ENV{HOME} . "/.siege/siege.conf";
+
+# path to bin directory from where this script was invoked, used to determine
+# the location to prepdata and siegechart
 my $bdir = $FindBin::Bin;
 
-getopts "d:f:H:hvi:l:r:s:t:";
+# assumed limit on the number of ephemeral ports allowed, using the default
+# Linux range of 32,768 - 61,000 (used to warn the user about insane values)
+my $ephemeral_socket_limit = 28232;
 
-my $delay   = $opt_d ? $opt_d : 15;
-my $sites   = $opt_f;
-my $inc     = $opt_i;
-my $rund    = $opt_l;
-my $runs    = $opt_r ? $opt_r : 10;
-my $start   = $opt_s;
-my $length  = $opt_t ? $opt_t : 5;
-my $header  = $opt_H ? "-H \"$opt_H\"" : "";
+# bombard build version
 my $version = "bombard-%_VERSION% [build %_DATE%]\n";
-my $siege   = "%_SIEGE%";
 
-my $usage = 
-"Usage: bombard [options]
-Options:
-  -d <delay>      Default 15	Max delay between connections (secs)
-  -f <URL file>	  Required	URLs to test
-  -h              Optional      This output
-  -i <increment>  Required	Additional simulated users per run
-  -l <run dir>    Optional      Used to store results
-  -r <runs>       Default 10 
-  -s <start>      Required	Number of simulated users for first run
-  -t <time>       Default 5	Duration of each run (mins)
-  -v              Version  
-  -H header       Optional      Pass an optional header to siege
+# siege path
+my $siege = "%_SIEGE%";
 
-If the run directory isn't specified .siegerc is read for a logfile entry and
-that directory will be used.  If there is no logfile entry in .siegerc the
-current directory is used\n";
+#
+# call siege -h and parse its options, getting back a set of lines we can use
+# to fill out our usage text and a hashref we can use to check for valid
+# command line options to feed to siege later on.
+#
+my ($siege_opts_lines, $siege_opts) = siege_options();
+my $siege_usage = join("\n      ", @{$siege_opts_lines});
 
-if( $opt_v ){ print $version; exit; }
-if( $opt_h ){ print $usage; exit; }
-die $usage unless $sites and $start and $inc;
 
-my $logf;
-my $rc = $ENV{HOME} . "/.siegerc";
-open RC, $rc or die "Can't open .siegerc: $!\n";
-while (<RC>) {
-	if (/^logfile = /) {
-		chomp;
-		$logf = (split)[2];
-		last;
+#
+# outline usage
+#
+my $usage = "usage:
+  bombard --initial <n> --step <n> --runs <n> [<options>]
+ 
+required parameters:
+  --initial <n>:
+      the initial number of concurrent users on the first run
+
+  --step <n>:
+      the number of users to add on each subsequent run
+
+  --runs <n>:
+      the total number of siege runs to execute
+
+options:
+  --output <dir>:
+      output directory for bombard results, by default this will be the
+      directory holding the siege log
+
+  -h | --help:
+      print full help, including siege options, and exit
+
+  -v | --version:
+      print version and exit
+
+   optional seige arguments to pass on each run:
+
+      $siege_usage
+   note that not all siege options make sense from the context of bombard, and
+   those that are detected will be dropped or overridden\n";
+
+#
+# record our command line input
+#
+my $cl_info;
+for (my $i = 0; $i < scalar(@ARGV); $i++) {
+	my $val = $ARGV[$i];
+	if ($val =~ m/[^a-z0-9,._@-]/) {
+		$val =~ s/'/"'"/g;
+		$val = sprintf("'%s'", $val);
+	}
+	if ($i == 0) {
+		$cl_info = $val;
+	} else {
+		$cl_info .= ' ' . $val;
 	}
 }
-die "Sorry, I need the logfile to be set in .siegerc\n" unless $logf;
 
-# If the run directory isn't specified on the command line get it from 
-# the rc file
-$rund = dirname $logf unless $rund;
+#
+# parse the command line options into the %cl_args hashmap
+#
+my %cl_args;
+while (scalar(@ARGV) > 0) {
+	my $arg = shift(@ARGV);
+	if ($arg =~ m/^-/) {
+		if ($arg =~ m/^--?h(elp)?$/) {
+			print($usage);
+			exit 0;
+		} elsif ($arg =~ m/^--?v(ersion)?$/) {
+			print($version);
+			exit 0;
+		} elsif ((scalar(@ARGV) == 0) || ($ARGV[0] =~ m/^-/)) {
+			# need to handle -t 10s, -t10s, -t=10s, or --time=10s
+			my $split_arg = 0;
+			foreach my $k (sort { length($b) <=> length($a)  } (keys(%{$siege_opts}))) {
+				if ($arg =~ m/^$k/ && length($arg) > length($k)) {
+					my $v = substr($arg, length($k));
+					$v =~ s/^=//;
 
-if (-d $rund) {
-  chdir $rund or die "Can't cd to $rund: $!\n";
-} else {
-  die "The run directory must already exist\n";
+					$cl_args{$k} = $v;
+					$split_arg = 1;
+				}
+			}
+			if ($split_arg == 0) {
+				$cl_args{$arg} = undef;
+			}
+		} else {
+			$cl_args{$arg} = shift(@ARGV);
+		}
+	} else {
+		$cl_args{$arg} = undef;
+	}
 }
 
-rename "$logf", "$logf.old" or die "Can't rename the log file: $!\n" if -f "$logf";
-die "The URL file is not readable: $!\n" unless -r $sites;
-
-my $clients = $start;
-my $i;
-for ($i = 1; $runs >= $i; $i++) {
-  system("$siege $header -f $sites -c $clients -t $length -d $delay -i");
-  $clients += $inc;
+#
+# require options --initial, --step, and --runs
+#
+my $initial = arg(\%cl_args, undef, undef, '--initial');
+my $step = arg(\%cl_args, undef, undef, '--step');
+my $runs = arg(\%cl_args, undef, undef, '--runs');
+if (! defined $initial || ! defined $step || ! defined $runs) {
+	warn("$0: missing required parameters\n\n");
+	print ($usage);
+	exit 1;
+} elsif ( "$initial,$step,$runs" !~ m/^[1-9]\d*,[1-9]\d*,[1-9]\d*$/) {
+	warn("$0: --initial, --step, and --runs must whole numbers > 0\n");
+	exit 2;
 }
 
-my $date = POSIX::strftime "%y%m%d", localtime;
-mkdir("$date", 0755) unless -d "$date";
+#
+# parse the seige configuration file into the %rc_args hashmap, we allow
+# either --rc or -r arguments to override the default $rc path
+#
+$rc = arg(\%cl_args, undef, $rc, '--rc', '-r');
 
-my $time = POSIX::strftime "%H%M", localtime;
-open LOG1, $logf;
-open LOG2, ">$date/$time";
-while (<LOG1>) {
-	print LOG2;
+my %rc_args;
+open(RC, '<', $rc)
+	or die("can't open $rc: $!\n");
+while (<RC>) {
+	chomp();
+	if ( /^(#\s*)?([^\s]+)\s*=\s*(.+)\s*$/ ) {
+		if ($1 !~ m/#/) {
+			$rc_args{$2} = $3;
+		}
+	}
 }
-close LOG2;
+close(RC)
+	or die("$0: error reading $rc: $!\n");
 
-open INFO, ">$date/$time.info";
-open SITE, $sites;
-print INFO "Start: $start\tIncrement: $inc\tRuns: $runs\tDelay: $delay\n";
-while (<SITE>) {
-	print INFO;
+#
+# calculate the ultimate number of concurrent users ($nusers), and the limit on
+# concurrent users in place in the siege configuration ($limit).
+#
+my $nuser = $initial + ( ($runs - 1) * $step );
+my $limit = arg(undef, \%rc_args, 255, 'limit');
+
+
+# refuse to continue if $nuser exceeds the siege limit, or warn if $nuser
+# exceeds the assumed ephemeral socket limit
+if ($nuser > $limit) {
+	die("$0: limit in $rc is set to " . numfmt($limit) . ", we cannot reach " . numfmt($nuser) . " concurrent users\n");
 }
-close INFO;
+if ($nuser > $ephemeral_socket_limit) {
+	warn("$0: you're asking for " . numfmt($nuser) . " concurrent users, this will probably exhaust your ephemeral sockets...\n");
+}
 
-chdir $date;
-print "Generating graphs...\n";
-system "$bdir/prepdata $time $start $inc";
+
+#
+# Require that a logfile be defined
+#
+my $logf = arg(\%cl_args, \%rc_args, undef, '--log', '-l', 'logfile');
+if (! defined $logf) {
+	die("either $rc must specify a logfile or you must provide a -l or --log argument.\n");
+}
+
+#
+# If a list of urls was defined record its absolute path before we chdir
+#
+my $file = arg(\%cl_args, \%rc_args, undef, '-f', '--file', 'file');
+
+#
+# Pick out flags that are meant for siege, excluding the ones that don't make
+# sense in this context or that  we have to set ourselves
+#
+my @siege_addl_parm = ();
+foreach my $k (sort(keys(%cl_args))) {
+	# some siege flags don't make sense in this context, ignore them
+	if ($k =~ m/^(-V|-h|--help|-C|--config)$/) {
+		continue
+	}
+
+	# skip over flags we have to set ourselves
+	if ($k =~ m/^(-c|--concurrent|-l|--log)$/) {
+		continue;
+	}
+
+	# add the flag to the @siege_addl_parm array
+	if (defined($siege_opts->{$k})) {
+		if ($siege_opts->{$k} == 1) {
+			my $arg = $cl_args{$k};
+			if (defined($arg)) {
+				push(@siege_addl_parm, $k, $arg);
+			}
+		} else {
+			push(@siege_addl_parm, $k);
+		}
+	}
+}
+
+#
+# Start the cycle of siege runs
+#
+if (-f $logf) {
+	rename("$logf", "$logf.old") or die("$0: cannot rename $logf to $logf.old: $!\n");
+}
+
+my $clients = $initial;
+for (my $i = 0; $i < $runs; $i++) {
+	my @siege_param = ('-c', $clients, '--log=' . $logf);
+	system("$siege", @siege_param, @siege_addl_parm);
+	if ($? == -1) {
+		die("$0: error executing siege: $!\n");
+	} elsif ( $? & 127) {
+		die(sprintf("$0: siege died with signal %d, %s coredump\n",
+			($? & 127), ($? & 128) ? "with" : "without"));
+	} else {
+		my $exit_code = ($? >> 8);
+		if ($exit_code != 0) {
+			die("$0: siege exited with exit code $exit_code\n");
+		}
+	}
+	$clients += $step;
+}
+
+#
+# Run analysis of the siege output
+#
+
+# record current date/time values to store the output reports
+my @localtime = localtime();
+my $date = POSIX::strftime("%Y-%m-%d", @localtime);
+my $time = POSIX::strftime("%H%M", @localtime);
+
+if ( ! -d $date ) {
+	mkdir($date, 0755)
+		or die("$0: unable to mkdir $date: $!\n");
+}
+
+# copy the siege log
+open(INPUT_LOG, '<', "$logf")
+	or die("$0: unable to open $logf: $!\n");
+open(OUTPUT_LOG, '>', "$date/$time")
+	or die("$0: unable to open $date/$time: $!\n");
+while(<INPUT_LOG>) {
+	print OUTPUT_LOG;
+}
+close(OUTPUT_LOG)
+	or die("$0: error writing to $date/$time: $!\n");
+
+# summarize the run
+open(OUTPUT_INFO, '>', "$date/$time.info")
+	or die("$0: unable to open $date/$time.info: $!\n");
+print OUTPUT_INFO "Command:\n$0 $cl_info\n";
+
+if (defined($file)) {
+	open(FILE, '<', "$file")
+		or die("$0: error opening $file: $!\n");
+	print OUTPUT_INFO "File:\n";
+	while(<FILE>) {
+		print OUTPUT_INFO;
+	}
+	close(FILE);
+}
+close(OUTPUT_INFO)
+	or die("$0: error writing to $date/time.info: $!\n");
+
+# produce the pretty pretty graphs, the real reason we're all here today
+chdir($date)
+	or die("$0: unable to chdir $date: $!\n");
+printf("Generating graphs...\n");
+
+system "$bdir/prepdata $time $initial $step";
 system "$bdir/siegechart -f $time.resp.png -y 'Response Time' $time.resp";
 system "$bdir/siegechart -f $time.tps.png -y TPS $time.tps";
 system "$bdir/siegechart -f $time.bps.png -y BPS $time.bps";
 system "$bdir/siegechart -f $time.conc.png -y Connections $time.conc";
 
+
+# my $value = arg(\%cl_args, \%rc_args, $fallback, @keys)
+# 
+# args returns the defined value of the first key in @keys that it finds either
+# in %ci_args or %rc_args.  Failure to find a match returns $fallback.
+sub arg {
+	my $cl_args = shift(@_);
+	my $rc_args = shift(@_);
+	my $fallback = shift(@_);
+	my @keys = @_;
+
+	my $val;
+	my $is_filepath = 0;
+
+	foreach my $k (@keys) {
+		if ($k =~ m/^(-f|--file|file|-l|--log|logfile|-R|--rc)$/) {
+			$is_filepath = 1;
+		}
+
+		if (ref($cl_args) eq 'HASH') {
+			if (defined $cl_args->{$k}) {
+				$val = $cl_args->{$k};
+				last;
+			}
+		}
+
+		if (!defined($val)) {
+			if (ref($rc_args) eq 'HASH') {
+				if (defined $rc_args->{$k}) {
+					$val = $rc_args->{$k};
+					last;
+				}
+			}
+		}
+	}
+
+	if ( ! defined($val)) {
+		$val = $fallback;
+	}
+
+	# file paths get some post-processing to expand them
+	# and evaluate their absolute paths
+	if ( $is_filepath == 1) {
+		$val = abs_path(expand($val));
+	}
+	
+	return $val;
+}
+
+# my ($lines, $opts) = siege_options()
+# 
+# siege_options calls siege -h and tries to parse out the block of text
+# outlining valid siege options, returning those lines as (1) an array ref,
+# with each array item stripped of its trailing end-of-line, and (2) as a hash
+# ref of the options names and whether or not they accept an argument.
+sub siege_options {
+	# @lines will holds the printable lines of text we parsed
+	# from the options section of the siege -h output
+	my @lines;
+
+	# %opts will holds the flags we parsed out, with a value of 0 or 1
+	# indicating whether or not the flag takes an argument
+	my %opts;
+
+	# in_opt is set to 1 once we hit the Options: line from the siege -h
+	# output
+	my $in_opt = 0;
+
+	open(SIEGE_H, "siege -h 2>/dev/null|");
+	while(<SIEGE_H>) {
+		chomp();
+		if ($_ =~ m/^Options:/) {
+			# found the leading Options: marker, start collecting
+			# the lines
+			$in_opt = 1;
+		} elsif ( $in_opt == 1) {
+			# no leading space signals the end of the options
+			# (e.g., this is the Copyright line)
+			if ($_ =~ m/^[^\s]/) {
+				return \@lines, \%opts;
+			}
+
+			# record the entire line for our usage string
+			push(@lines, $_);
+
+			# pick apart the long and short forms of the options,
+			# and check whether or not they indicate that they take
+			# an argument
+			if ($_ =~ m/^\s+(-[^\s,]+)(?:,\s+(--[^\s,]+))?/) {
+				my $opt = $1;
+				if (defined($2) && ($2 =~ m/=/)) {
+					$opts{$opt} = 1;
+				} else {
+					$opts{$opt} = 0;
+				}
+				if (defined($2)) {
+					my $opt= $2;
+					if ($2 =~ m/^(.*?)\[?=/) {
+						$opt= $1;
+						$opts{$opt} = 1;
+					} else {
+						$opts{$opt} = 0;
+					}
+				}
+			}
+		}
+	}
+	close(SIEGE_H);
+}
+
+# my $expanded = expand($str)
+#
+# expand evaluates $str for environment variables in the form $var or ${var}
+# and tries to expand them into their actual values using %ENV.
+sub expand {
+	my $str = shift(@_);
+
+	my @tokens = ($str =~ m/(\$[A-Za-z0-9_]+|\$\{[A-Za-z0-9_]+\})/g);
+	if (scalar(@tokens) != 0) {
+		my @uniq = do { my %seen; grep { !$seen{$_}++ } @tokens };
+		foreach my $token (sort(@uniq)) {
+			my $name = $token;
+			$name =~ s/^\$\{?//;
+			$name =~ s/}$//;
+			if (exists $ENV{$name}) {
+				my $value = $ENV{$name};
+				$str =~ s/\Q$token\E/$value/g;
+			}
+		}
+	}
+	return $str;
+}
+
+# my $pretty = numfmt($num)
+#
+# numfmt pretty prints numbers with commas
+sub numfmt {
+	my $s = reverse($_[0]);
+	$s =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/g;
+	return scalar(reverse($s));
+}
