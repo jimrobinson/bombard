@@ -1,5 +1,10 @@
 # Siege + Bombard Docker build
 
+The build was originally derived from https://github.com/allardhoeve/bombard
+and https://github.com/klokantech/bombard-docker, with some changes made by me
+to allow for more control over how bombard called siege and reducing the size
+of the Docker environment.
+
 Derived off work by the following:
 
 - Joe Dog Software (https://www.joedog.org/)
@@ -10,15 +15,10 @@ Derived off work by the following:
 
 I've made use of Siege from http:/www.joedog.org/ and Bombard from
 https://github.com/allardhoeve over the years, and decided to make few changes
-to it to better suite my testing needs.
+to it to better suit my testing needs.
 
 Using the Docker file in this project you can build an image to run bombard or
 siege against an http service.
-
-The build was originally derived from https://github.com/allardhoeve/bombard
-and https://github.com/klokantech/bombard-docker, with some changes made by me
-to allow for more control over how bombard called siege and reducing the size
-of the Docker environment.
 
 While siege can be run against a single url, it is generally more useful to run
 it against a list of urls.  The url list allows for variables, so you can use
@@ -124,8 +124,10 @@ options:
 ----
 
 The idea behind the bombard usage options are to scale up the number of users
-on each run, and then graph the performance of the server as concurrent users
-increases.  As an example:
+on each run, and then examine the siege log to graph the performance profile of
+the service as concurrent users increases.
+
+As an example:
 
 ----
 $ docker run --rm -it -v $(pwd):/data bombard:latest bombard --initial 5 --step 1 --runs 20 -l siege.log -f urls.txt -i -b -r 10000
