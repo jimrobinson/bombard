@@ -1,0 +1,146 @@
+# Siege + Bombard Docker build
+
+Derived off work by the following:
+
+- Joe Dog Software (https://www.joedog.org/)
+- Bill Proud
+- Peter J. Hutnick
+- Allard Hoeve (https://github.com/allardhoeve)
+- Klokan Technologies GmbH 
+
+I've made use of Siege from http:/www.joedog.org/ and Bombard from
+https://github.com/allardhoeve over the years, and decided to make few changes
+to it to better suite my testing needs.
+
+Using the Docker file in this project you can build an image to run bombard or
+siege against an http service.
+
+The build was originally derived from https://github.com/allardhoeve/bombard
+and https://github.com/klokantech/bombard-docker, with some changes made by me
+to allow for more control over how bombard called siege and reducing the size
+of the Docker environment.
+
+While siege can be run against a single url, it is generally more useful to run
+it against a list of urls.  The url list allows for variables, so you can use
+those to make your test data mostly independent of the ultimate target ip
+address and port.  For example
+
+----
+$ head -4 urls.txt
+ADDR=192.168.10.103:8080
+http://${ADDR}/editorial.html
+http://${ADDR}/editorial/2020/03/14.cover-source.tif
+http://${ADDR}/editorial/2020/03/14.cover.gif
+----
+
+Note that we are assuming your test data directory is being mounted onto the
+path /data in the container, and that /data is the default working directory
+for the container (you can override this with docker's '-w' argument).
+
+The container we will need to be able to read and write to the /data directory.
+By default the container assumes UID 1000 and GID 1000, but if your user isn't
+using those values you can rebuild the container using the appropriate values:
+
+----
+$ docker build -e UID=$(id -u) -e GID=$(id -g) -t bombard:latest
+----
+
+To run a siege test using a container image named 'bombard:latest' when you are
+in your test-data directory on your machine (not inside a docker instance), you
+could execute the following to start up a docker container running siege:
+
+----
+$ docker run --rm -it -v $(pwd):/data bombard:latest siege -l siege.log -f urls.txt -t 1m -i -c 10 -b
+----
+
+With this example siege will log to /data/siege.log ('-l siege.log'), read its
+urls from /data/url.txt ('-f urls.txt'), run for one minute ('-t 1m'), use
+internet mode ('-i') which tells it to randomly select urls from the data file,
+limits itself to 10 concurrent connections ('-c 10'), and runs in benchmark
+('-b') mode which tells it to make requests as quickly as possible.
+
+The bombard tool can be used to graph siege results over time as concurrent
+users are added to the load.
+
+----
+$ docker run --rm -it -v $(pwd):/data bombard:latest bombard -h
+usage:
+  bombard --initial <n> --step <n> --runs <n> [<options>]
+
+required parameters:
+  --initial <n>:
+      the initial number of concurrent users on the first run
+
+  --step <n>:
+      the number of users to add on each subsequent run
+
+  --runs <n>:
+      the total number of siege runs to execute
+
+options:
+  --output <dir>:
+      output directory for bombard results, by default this will be the
+      directory holding the siege log
+
+  -h | --help:
+      print full help, including siege options, and exit
+
+  -v | --version:
+      print version and exit
+
+   optional seige arguments to pass on each run:
+
+        -V, --version             VERSION, prints the version number.
+        -h, --help                HELP, prints this section.
+        -C, --config              CONFIGURATION, show the current config.
+        -v, --verbose             VERBOSE, prints notification to screen.
+        -q, --quiet               QUIET turns verbose off and suppresses output.
+        -g, --get                 GET, pull down HTTP headers and display the
+                                  transaction. Great for application debugging.
+        -p, --print               PRINT, like GET only it prints the entire page.
+        -c, --concurrent=NUM      CONCURRENT users, default is 10
+        -r, --reps=NUM            REPS, number of times to run the test.
+        -t, --time=NUMm           TIMED testing where "m" is modifier S, M, or H
+                                  ex: --time=1H, one hour test.
+        -d, --delay=NUM           Time DELAY, random delay before each request
+        -b, --benchmark           BENCHMARK: no delays between requests.
+        -i, --internet            INTERNET user simulation, hits URLs randomly.
+        -f, --file=FILE           FILE, select a specific URLS FILE.
+        -R, --rc=FILE             RC, specify an siegerc file
+        -l, --log[=FILE]          LOG to FILE. If FILE is not specified, the
+                                  default is used: PREFIX/var/siege.log
+        -m, --mark="text"         MARK, mark the log file with a string.
+                                  between .001 and NUM. (NOT COUNTED IN STATS)
+        -H, --header="text"       Add a header to request (can be many)
+        -A, --user-agent="text"   Sets User-Agent in request
+        -T, --content-type="text" Sets Content-Type in request
+        -j, --json-output         JSON OUTPUT, print final stats to stdout as JSON
+            --no-parser           NO PARSER, turn off the HTML page parser
+            --no-follow           NO FOLLOW, do not follow HTTP redirects
+
+   note that not all siege options make sense from the context of bombard, and
+   those that are detected will be dropped or overridden
+----
+
+The idea behind the bombard usage options are to scale up the number of users
+on each run, and then graph the performance of the server as concurrent users
+increases.  As an example:
+
+----
+$ docker run --rm -it -v $(pwd):/data bombard:latest bombard --initial 5 --step 1 --runs 20 -l siege.log -f urls.txt -i -b -r 10000
+----
+
+So that would start with 5 concurrent users, then add 1 more user on each run,
+for a total of 20 runs.  That would ultimately run '(initial + ((runs-1) *
+step)' users, or 24 concurrent users.  The, '-l', '-f', '-i', '-b', and '-r'
+flags are all passed through to siege, meaning the log will be written ti
+siege.log, the urls read from urls.txt, it will operate in "internet" mode
+(random selection of urls for the source urls list), benchmarking mode (no
+pause between requests), and  will make 10,000 requests.
+
+After the siege runs bombard will examine the 'logfile' siege produced, and
+will generate PNG graphs using its 'siegechart' program.  The data files and
+graphs will be placed placing them into a subdirectory of your log directory,
+'YYY-MM-DD', with the data files named after the Hour and Minute the last run
+ended.  The graphs chart the trendline for response times compared to users and
+connection rates.
