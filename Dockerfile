@@ -72,8 +72,9 @@ RUN groupmod -g $GID qa
 RUN chown qa:qa .
 
 # initialize our default siege configuration
-# and then fix up some of the defaults that break
-# bombard
+# and then fix up some of the defaults
 USER qa
 RUN /usr/local/bin/siege -V
 RUN sed -i 's/json_output = true/json_output = false/' $HOME/.siege/siege.conf
+RUN sed -i '/^# logfile =$/s/# logfile =/logfile = \/data\/siege.log/' $HOME/.siege/siege.conf
+RUN sed -i '/^# file =$/s/# file =/file = \/data\/urls.txt/' $HOME/.siege/siege.conf
