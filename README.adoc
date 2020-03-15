@@ -7,19 +7,19 @@ of the Docker environment.
 
 Derived off work by the following:
 
-- Joe Dog Software (https://www.joedog.org/)
-- Bill Proud
-- Peter J. Hutnick
+- Jeffrey Fulmer <http://www.joedog.org/contact/author.shtml>
+- Bill Proud  <bill.proud@nl.wanadoo.com>
+- Peter Hutnick <phutnick@aperian.com>
 - Allard Hoeve (https://github.com/allardhoeve)
-- Klokan Technologies GmbH 
+- Klokan Technologies GmbH  (https://github.com/klokantech)
 
 I've made use of Siege from http:/www.joedog.org/ and Bombard from
 https://github.com/allardhoeve over the years, and decided to make few changes
 to bombard to better suit my testing needs.  See the README.original.md for the
-original README information.
+original Siege Support Utilities document.
 
-Using the Docker file in this project you can build an image to run bombard or
-siege against an http service.
+Using the Docker file in this project you can build an image to siege or
+bombard against an http service.
 
 While siege can be run against a single url, it is generally more useful to run
 it against a list of urls.  The url list allows for variables, so you can use
@@ -61,6 +61,16 @@ container, use internet mode ('-i') which tells it to randomly select urls from
 the data file, limits itself to 10 concurrent connections ('-c 10'), and runs
 in benchmark ('-b') mode which tells it to make requests as quickly as
 possible, and to exit after making 10,000 requests ('-r 10000').
+
+The default user within the container, 'qa', has a siegerc configuration file
+in /home/qa/.siege/.  If you want to override these values you can bind an
+external directory over it when you run the image, the same as we're doing with
+our data directory.
+
+The default siege configuration file here sets a 'logfile = /data/siege.log'
+and a 'file = /data/urls.txt', so if your 'data' directory source contains
+these files, they will be used by default unless you specify the '-l' /
+'--logfile' or '-f' / '--file' command line overrides.
 
 See https://www.joedog.org/siege-manual/ for the full manual on siege's
 capabilities and on the authors recommendations on how to most effectively use
@@ -153,8 +163,8 @@ After the siege runs have completed bombard will examine the 'logfile' siege
 produced, and produce its report.
 
 The report files are placed into a subdirectory 'YYYY-MM-DD' within the output
-directory.  The text files within that 'YYYY-MM-DD' directory will be named
-after the Hour and Minute the last run ended, 'MMHH.*'.  The graphs chart the
+directory.  The output files within that 'YYYY-MM-DD' directory will be named
+after the hour and minute the last run ended, 'MMHH.*' The graphs chart the
 trendline for response times compared to users and connection rates.  As an
 example:
 
@@ -172,26 +182,22 @@ $ ls -l 2020-03-15/0050*
 -rw-r--r--@ 1 jimr  staff      2608 Mar 14 17:50 2020-03-15/0050.tps.png
 ----
 
-The description of what these report files hold is:
+A description of the summary and graph files:
 
 [%header,%width=50%,cols="25%,75%"]
 |===
-| Name | Description
-| 0050 | Siege summary, one line per run
-| 0050.bps | Throughput in bytes per second
-| 0050.bps.png | Graph of Throughput in bytes per second by user load
-| 0050.conc | Concurrency by user load
-| 0050.conc.png | A Graph of the Concurrency by user load
-| 0050.info | The urls data passed to siege
-| 0050.resp | The response time by user load
-| 0050.resp.png | A graph of the response time by user load
-| 0050.tps | Transactions per second by user load
-| 0050.tps.png | A graph of the Transactions per second by user load
+| Name | Description |
+| 0050 | Master siege log, one line per run |
+| 0050.info | The urls data passed to siege |
+| 0050.bps.png | Graph of bytes per second served, by user load |
+| 0050.conc.png | Graph of the concurrency, average simultaneous connections, by user load |
+| 0050.resp.png | Graph of the response time, in seconds, by user load |
+| 0050.tps.png | Graph of the transactions per second by user load |
 |===
 
-Note that the individual data text files (.bps, .conc, .info, .resp, and .tsp)
-are all pulled from the main Siege summary file, I believe they are just pulled
-out to make it easier to then chart them.
+The other files, with extensions .bps, .conf, .info, .resp, and .tps are the
+data files fed to into siegechart to produce the graphs.  They are derived from
+the Master siege log data file.
 
 Since we're mounting our current directory as /data in this example, we should
 expect to find the final 'seige.log' and 'YYYY-MM-DD' output directory there.
