@@ -150,12 +150,44 @@ siege.log, the urls read from urls.txt, it will operate in "internet" mode
 pause between requests), and  will make 10,000 requests.
 
 After the siege runs have completed bombard will examine the 'logfile' siege
-produced, and will produce text summaries, and produce PNG graphs using the
-'siegechart' program.  The data files and graphs will be placed into a
-subdirectory 'YYYY-MM-DD' within the output directory.  The text files within
-that 'YYYY-MM-DD' directory will be named after the Hour and Minute the last
-run ended, 'MMHH.*'.  The graphs chart the trendline for response times
-compared to users and connection rates.
+produced, and produce its report.
+
+The report files are placed into a subdirectory 'YYYY-MM-DD' within the output
+directory.  The text files within that 'YYYY-MM-DD' directory will be named
+after the Hour and Minute the last run ended, 'MMHH.*'.  The graphs chart the
+trendline for response times compared to users and connection rates.  As an
+example:
+
+----
+$ ls -l 2020-03-15/0050*
+-rw-r--r--  1 jimr  staff      2683 Mar 14 17:50 2020-03-15/0050
+-rw-r--r--  1 jimr  staff       204 Mar 14 17:50 2020-03-15/0050.bps
+-rw-r--r--@ 1 jimr  staff      2561 Mar 14 17:50 2020-03-15/0050.bps.png
+-rw-r--r--  1 jimr  staff       179 Mar 14 17:50 2020-03-15/0050.conc
+-rw-r--r--@ 1 jimr  staff      2113 Mar 14 17:50 2020-03-15/0050.conc.png
+-rw-r--r--  1 jimr  staff  11138874 Mar 14 17:50 2020-03-15/0050.info
+-rw-r--r--  1 jimr  staff       165 Mar 14 17:50 2020-03-15/0050.resp
+-rw-r--r--@ 1 jimr  staff      1586 Mar 14 17:50 2020-03-15/0050.resp.png
+-rw-r--r--  1 jimr  staff       228 Mar 14 17:50 2020-03-15/0050.tps
+-rw-r--r--@ 1 jimr  staff      2608 Mar 14 17:50 2020-03-15/0050.tps.png
+----
+
+The description of what these report files hold is:
+
+[%header,cols=2]
+|===
+| Name | Description |
+| 0050 | Siege log line per run |
+| 0050.bps | Bytes Per Second by user load |
+| 0050.bps.png | Graph of Bytes Per Second by user load |
+| 0050.conc | Connections by user load |
+| 0050.conc.png | A Graph of the Connections by user load |
+| 0050.info | The urls data passed to siege |
+| 0050.resp | The response time by user load |
+| 0050.resp.png | A graph of the response time by user load |
+| 0050.tps | Transactions Per Second by user load |
+| 0050.tps.png | A graph of the Transactions Per Second by user load |
+|===
 
 Since we're mounting our current directory as /data in this example, we should
 expect to find the final 'seige.log' and 'YYYY-MM-DD' output directory there.
