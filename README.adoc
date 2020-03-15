@@ -37,9 +37,10 @@ Note that we are assuming your test data directory is being mounted onto the
 path /data in the container, and that /data is the default working directory
 for the container (you can override this with docker's '-w' argument).
 
-The container we will need to be able to read and write to the /data directory.
-By default the container assumes UID 1000 and GID 1000, but if your user isn't
-using those values you can rebuild the container using the appropriate values:
+Within the container we will need to be able to read and write to the /data
+directory.  By default the container assumes UID 1000 and GID 1000, but if your
+user isn't using those values you can rebuild the container using the
+appropriate values:
 
 ----
 $ docker build -e UID=$(id -u) -e GID=$(id -g) -t bombard:latest
