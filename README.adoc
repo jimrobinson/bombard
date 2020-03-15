@@ -186,13 +186,13 @@ A description of the summary and graph files:
 
 [%header,%width=50%,cols="25%,75%"]
 |===
-| Name | Description |
-| 0050 | Master siege log, one line per run |
-| 0050.info | The urls data passed to siege |
-| 0050.bps.png | Graph of bytes per second served, by user load |
-| 0050.conc.png | Graph of the concurrency, average simultaneous connections, by user load |
-| 0050.resp.png | Graph of the response time, in seconds, by user load |
-| 0050.tps.png | Graph of the transactions per second by user load |
+| Name | Description
+| 0050 | Master siege log, one line per run
+| 0050.info | The urls data passed to siege
+| 0050.bps.png | Graph of bytes per second served, by user load
+| 0050.conc.png | Graph of the concurrency, average simultaneous connections, by user load
+| 0050.resp.png | Graph of the response time, in seconds, by user load
+| 0050.tps.png | Graph of the transactions per second by user load
 |===
 
 The other files, with extensions .bps, .conf, .info, .resp, and .tps are the
