@@ -52,15 +52,19 @@ in your data directory on your machine (not inside a docker instance), you
 could execute the following to start up a docker container running siege:
 
 ----
-$ docker run --rm -it -v $(pwd):/data bombard:latest siege -l siege.log -f urls.txt -t 1m -i -c 10 -b
+$ docker run --rm -it -v $(pwd):/data bombard:latest siege -l siege.log -f urls.txt -i -c 10 -b -r 10000
 ----
 
 With this example siege will log to /data/siege.log ('-l siege.log') within the
 container, read its urls from /data/url.txt ('-f urls.txt') within the
-container, run for one minute ('-t 1m'), use internet mode ('-i') which tells
-it to randomly select urls from the data file, limits itself to 10 concurrent
-connections ('-c 10'), and runs in benchmark ('-b') mode which tells it to make
-requests as quickly as possible.
+container, use internet mode ('-i') which tells it to randomly select urls from
+the data file, limits itself to 10 concurrent connections ('-c 10'), and runs
+in benchmark ('-b') mode which tells it to make requests as quickly as
+possible, and to exit after making 10,000 requests ('-r 10000').
+
+See https://www.joedog.org/siege-manual/ for the full manual on siege's
+capabilities and on the authors recommendations on how to most effectively use
+it.
 
 The bombard tool can be used to graph siege results over time as concurrent
 users are added to the load.
@@ -145,12 +149,13 @@ siege.log, the urls read from urls.txt, it will operate in "internet" mode
 (random selection of urls for the source urls list), benchmarking mode (no
 pause between requests), and  will make 10,000 requests.
 
-After the siege runs bombard will examine the 'logfile' siege produced, and
-will generate PNG graphs using its 'siegechart' program.  The data files and
-graphs will be placed placing them into a subdirectory of your log directory,
-'YYY-MM-DD', with the data files named after the Hour and Minute the last run
-ended.  The graphs chart the trendline for response times compared to users and
-connection rates.
+After the siege runs have completed bombard will examine the 'logfile' siege
+produced, and will produce text summaries, and produce PNG graphs using the
+'siegechart' program.  The data files and graphs will be placed into a
+subdirectory 'YYYY-MM-DD' within the output directory.  The text files within
+that 'YYYY-MM-DD' directory will be named after the Hour and Minute the last
+run ended, 'MMHH.*'.  The graphs chart the trendline for response times
+compared to users and connection rates.
 
 Since we're mounting our current directory as /data in this example, we should
 expect to find the final 'seige.log' and 'YYYY-MM-DD' output directory there.
