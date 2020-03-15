@@ -174,19 +174,19 @@ $ ls -l 2020-03-15/0050*
 
 The description of what these report files hold is:
 
-[%header,cols=2]
+[%header,%width=50%,cols="25%,75%"]
 |===
-| Name | Description |
-| 0050 | Siege log line per run |
-| 0050.bps | Bytes Per Second by user load |
-| 0050.bps.png | Graph of Bytes Per Second by user load |
-| 0050.conc | Connections by user load |
-| 0050.conc.png | A Graph of the Connections by user load |
-| 0050.info | The urls data passed to siege |
-| 0050.resp | The response time by user load |
-| 0050.resp.png | A graph of the response time by user load |
-| 0050.tps | Transactions Per Second by user load |
-| 0050.tps.png | A graph of the Transactions Per Second by user load |
+| Name | Description
+| 0050 | Siege summary per run
+| 0050.bps | Bytes Per Second by user load
+| 0050.bps.png | Graph of Bytes Per Second by user load
+| 0050.conc | Connections by user load
+| 0050.conc.png | A Graph of the Connections by user load
+| 0050.info | The urls data passed to siege
+| 0050.resp | The response time by user load
+| 0050.resp.png | A graph of the response time by user load
+| 0050.tps | Transactions Per Second by user load
+| 0050.tps.png | A graph of the Transactions Per Second by user load
 |===
 
 Since we're mounting our current directory as /data in this example, we should
