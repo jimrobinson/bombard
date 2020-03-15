@@ -17,11 +17,18 @@ RUN apt-get install -y zlib1g-dev
 RUN apt-get install -y git
 RUN apt-get install -y libgd-graph-perl
 
+# Create source directory to preserve resources we pull outside of the package
+# manager
+RUN mkdir -p /usr/local/src
+
+# Setup our build directory
+RUN mkdir -p /build
+
 # Fetch and build Chart
 WORKDIR /
-RUN curl -s -o /${CHART}.tar.gz http://www.cpan.org/authors/id/C/CH/CHARTGRP/${CHART}.tar.gz
-RUN tar zxf ${CHART}.tar.gz
-WORKDIR ${CHART}
+RUN curl -s -o /usr/local/src/${CHART}.tar.gz http://www.cpan.org/authors/id/C/CH/CHARTGRP/${CHART}.tar.gz
+RUN tar -xzf /usr/local/src/${CHART}.tar.gz -C /build
+WORKDIR /build/${CHART}
 RUN sed -i.orig -e 's/@data = @$rdata if defined @$rdata;/@data = @$rdata if @$rdata/' ./Chart/Base.pm
 RUN perl Makefile.PL
 RUN make
@@ -29,10 +36,9 @@ RUN make test
 RUN make install
 
 # Fetch and build siege
-WORKDIR /
-RUN curl -s -o /${SIEGE}.tar.gz http://download.joedog.org/siege/$SIEGE.tar.gz
-RUN tar -xzf $SIEGE.tar.gz
-WORKDIR /$SIEGE
+RUN curl -s -o /usr/local/src/${SIEGE}.tar.gz http://download.joedog.org/siege/${SIEGE}.tar.gz
+RUN tar -xzf /usr/local/src/${SIEGE}.tar.gz -C /build
+WORKDIR /build/${SIEGE}
 RUN ./configure
 RUN make install
 
