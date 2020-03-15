@@ -177,7 +177,7 @@ The description of what these report files hold is:
 [%header,%width=50%,cols="25%,75%"]
 |===
 | Name | Description
-| 0050 | Siege summary per run
+| 0050 | Siege summary, one line per run
 | 0050.bps | Throughput in bytes per second
 | 0050.bps.png | Graph of Throughput in bytes per second by user load
 | 0050.conc | Concurrency by user load
@@ -188,6 +188,10 @@ The description of what these report files hold is:
 | 0050.tps | Transactions per second by user load
 | 0050.tps.png | A graph of the Transactions per second by user load
 |===
+
+Note that the individual data text files (.bps, .conc, .info, .resp, and .tsp)
+are all pulled from the main Siege summary file, I believe they are just pulled
+out to make it easier to then chart them.
 
 Since we're mounting our current directory as /data in this example, we should
 expect to find the final 'seige.log' and 'YYYY-MM-DD' output directory there.
