@@ -70,7 +70,7 @@ usage:
 
 required parameters:
   --initial <n>:
-      the initial number of concurrent users on the first run
+      the number of concurrent users on the initial run
 
   --step <n>:
       the number of users to add on each subsequent run
