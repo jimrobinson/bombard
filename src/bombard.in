@@ -38,7 +38,6 @@ my $siege = "%_SIEGE%";
 my ($siege_opts_lines, $siege_opts) = siege_options();
 my $siege_usage = join("\n      ", @{$siege_opts_lines});
 
-
 #
 # outline usage
 #
@@ -387,19 +386,18 @@ sub siege_options {
 			# and check whether or not they indicate that they take
 			# an argument
 			if ($_ =~ m/^\s+(-[^\s,]+)(?:,\s+(--[^\s,]+))?/) {
-				my $opt = $1;
-				if (defined($2) && ($2 =~ m/=/)) {
-					$opts{$opt} = 1;
+				my $opt1 = $1;
+				my $opt2 = $2;
+				if (defined($opt2) && ($opt2 =~ m/=/)) {
+					$opts{$opt1} = 1;
 				} else {
-					$opts{$opt} = 0;
+					$opts{$opt1} = 0;
 				}
-				if (defined($2)) {
-					my $opt= $2;
-					if ($2 =~ m/^(.*?)\[?=/) {
-						$opt= $1;
-						$opts{$opt} = 1;
+				if (defined($opt2)) {
+					if ($opt2 =~ m/^(.*?)\[?=/) {
+						$opts{$1} = 1;
 					} else {
-						$opts{$opt} = 0;
+						$opts{$opt2} = 0;
 					}
 				}
 			}
