@@ -60,21 +60,16 @@ COPY --from=build /usr/local /usr/local
 RUN mkdir /data
 WORKDIR /data
 
-# UID and GID can be overridden via env when building the container:
-# docker build -e UID=$(id -u) -e GID=(id -g) -t bombard:latest
-ENV UID 1000
-ENV GID 1000
-
-# Add our container user 'qa' and set uid and gid
-RUN adduser --disabled-password --gecos "" qa
-RUN usermod -u $UID qa
-RUN groupmod -g $GID qa
-RUN chown qa:qa .
+# Add our container user
+RUN adduser --home / --shell /bin/bash --disabled-password --gecos "" siege
+RUN mkdir -p /.siege/
+RUN chown -R siege:siege /.siege/
+RUN chown -R siege:siege /data
+USER siege
 
 # initialize our default siege configuration
 # and then fix up some of the defaults
-USER qa
-RUN /usr/local/bin/siege -V
+RUN /usr/local/bin/siege.config
 RUN sed -i 's/json_output = true/json_output = false/' $HOME/.siege/siege.conf
 RUN sed -i '/^# logfile =$/s/# logfile =/logfile = \/data\/siege.log/' $HOME/.siege/siege.conf
 RUN sed -i '/^# file =$/s/# file =/file = \/data\/urls.txt/' $HOME/.siege/siege.conf
