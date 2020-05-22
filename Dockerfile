@@ -76,6 +76,7 @@ USER siege
 # initialize our default siege configuration
 # and then fix up some of the defaults
 RUN /usr/local/bin/siege.config
-RUN sed -i 's/json_output = true/json_output = false/' $HOME/.siege/siege.conf
+RUN sed -i 's/^show-logfile = true/show-logfile = false/' $HOME/.siege/siege.conf
+RUN sed -i 's/^json_output = true/json_output = false/' $HOME/.siege/siege.conf
 RUN sed -i '/^# logfile =$/s/# logfile =/logfile = \/data\/siege.log/' $HOME/.siege/siege.conf
 RUN sed -i '/^# file =$/s/# file =/file = \/data\/urls.txt/' $HOME/.siege/siege.conf
