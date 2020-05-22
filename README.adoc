@@ -38,34 +38,34 @@ Note that we are assuming your test data directory is being mounted onto the
 path /data in the container, and that /data is the default working directory
 for the container (you can override this with docker run's '-w').
 
-Within the container we will need to be able to read and write to the /data
-directory.  By default the container assumes UID 1000 and GID 1000, but if your
-user isn't using those values you can rebuild the container using the
-appropriate values:
-
-----
-$ docker build -e UID=$(id -u) -e GID=$(id -g) -t bombard:latest
-----
-
 To run a siege test using a container image named 'bombard:latest' when you are
 in your data directory on your machine (not inside a docker instance), you
 could execute the following to start up a docker container running siege:
 
 ----
-$ docker run --rm -it -v $(pwd):/data bombard:latest siege -l siege.log -f urls.txt -i -c 10 -b -r 10000
+$ docker run --rm -v $(pwd):/data bombard:latest siege -l siege.log -f urls.txt -i -c 10 -b -r 10000
 ----
 
-With this example siege will log to /data/siege.log ('-l siege.log') within the
-container, read its urls from /data/url.txt ('-f urls.txt') within the
-container, use internet mode ('-i') which tells it to randomly select urls from
-the data file, limits itself to 10 concurrent connections ('-c 10'), and runs
-in benchmark ('-b') mode which tells it to make requests as quickly as
-possible, and to exit after making 10,000 requests ('-r 10000').
+Within the container we read and write to the /data directory.  By default the
+container assumes UID 1000 and GID 1000, but you can override the uid and gid
+values at runtime:
 
-The default user within the container, 'qa', has a siegerc configuration file
-in /home/qa/.siege/.  If you want to override these values you can bind an
-external directory over it when you run the image, the same as we're doing with
-our data directory.
+----
+$ docker run --rm  --user $(id -u):$(id -g) -it -v $(pwd):/data bombard:latest siege -l siege.log -f urls.txt -i -c 10 -b -r 10000
+----
+
+With this example siege, inside its container, will log to /data/siege.log
+('-l siege.log') within the container, read its urls from /data/url.txt ('-f
+urls.txt') within the container, use internet mode ('-i') which tells it to
+randomly select urls from the data file, limits itself to 10 concurrent
+connections ('-c 10'), and runs in benchmark ('-b') mode which tells it to make
+requests as quickly as possible, and to exit after making 10,000 requests ('-r
+10000').
+
+The default user within the container, 'siegerc', has a siegerc configuration
+file in /.siege/.  If you want to override these values you can bind an
+external directory over /.siege when you run the image, the same as we're doing
+with our data directory.
 
 The default siege configuration file here sets a 'logfile = /data/siege.log'
 and a 'file = /data/urls.txt', so if your 'data' directory source contains
